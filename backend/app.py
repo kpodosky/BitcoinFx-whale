@@ -371,7 +371,7 @@ class BitcoinWhaleTracker:
                 time.sleep(30)
 
 if __name__ == "__main__":
-    tracker = BitcoinWhaleTracker(min_btc=10)  # Track transactions over 10 BTC
+    tracker = BitcoinWhaleTracker(min_btc=100)  # Track transactions over 100 BTC
     tracker.track_whale_transactions()
     
 from flask import Flask, jsonify
