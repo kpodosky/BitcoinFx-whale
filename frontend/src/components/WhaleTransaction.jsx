@@ -55,19 +55,19 @@ const WhaleTransaction = () => {
               [<span className="text-green-500">↑</span>{transactionData.from.stats.sent_count}|<span className="text-red-500">↓</span>{transactionData.from.stats.received_count}]
             </div>
             <div className="font-mono">
-              Total: ↑{transactionData.from.stats.total_sent.toFixed(2)}|↓{transactionData.from.stats.total_received.toFixed(2)} BTC
+               Total: <span className="text-green-500">↑</span>{transactionData.from.stats.total_sent.toFixed(2)}|<span className="text-red-500">↓</span>{transactionData.from.stats.total_received.toFixed(2)} BTC
             </div>
           </div>
         </div>
 
         {/* Arrow */}
-        <div className="flex-grow flex justify-center">
-          <svg className="w-24 h-8">
+         <div className="flex-grow flex justify-center">
+          <svg className="w-24 h-8" viewBox="0 0 96 32">
             <defs>
               <marker
                 id="arrowhead"
                 markerWidth="10"
-                markerHeight="7"
+                markerHeight="7" 
                 refX="9"
                 refY="3.5"
                 orient="auto"
@@ -94,12 +94,12 @@ const WhaleTransaction = () => {
         <div className="w-[300px] p-4 bg-white border-2 border-black rounded-lg">
           <div className="text-sm mb-1">To: {transactionData.to.address}</div>
           <div className="text-sm mb-2">({transactionData.to.label})</div>
-          <div className="text-xs text-gray-600 space-y-1">
+            <div className="text-xs text-gray-600 space-y-1">
             <div className="font-mono">
-              [↑{transactionData.to.stats.sent_count}|↓{transactionData.to.stats.received_count}]
+              [<span className="text-green-500">↑</span>{transactionData.to.stats.sent_count}|<span className="text-red-500">↓</span>{transactionData.to.stats.received_count}]
             </div>
             <div className="font-mono">
-              Total: ↑{transactionData.to.stats.total_sent.toFixed(2)}|↓{transactionData.to.stats.total_received.toFixed(2)} BTC
+              Total: <span className="text-green-500">↑</span>{transactionData.to.stats.total_sent.toFixed(2)}|<span className="text-red-500">↓</span>{transactionData.to.stats.total_received.toFixed(2)} BTC
             </div>
           </div>
         </div>
