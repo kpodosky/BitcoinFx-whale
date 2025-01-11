@@ -1,23 +1,66 @@
 ---
-title: Flask
-description: A popular minimal server framework for Python
-tags:
-  - python
-  - flask
----
+### Code Analysis for Alert shark tweets.py
 
-# Python Flask Example
+1. **Data Structure Definition**
+   - Uses `@dataclass` to define 
 
-This is a [Flask](https://flask.palletsprojects.com/en/1.1.x/) app that serves a simple JSON response.
+TransactionData
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template/zUcpux)
+ class
+   - Stores Bitcoin transaction information:
+     - 
 
-## ✨ Features
+btc_value
 
-- Python
-- Flask
+: Amount of Bitcoin
+     - 
 
-## 💁‍♀️ How to use
+svg_path
 
-- Install Python requirements `pip install -r requirements.txt`
-- Start the server for development `python3 main.py`
+: Path to visualization image
+     - 
+
+timestamp
+
+: Time of transaction
+
+2. **Main Monitor Class**
+   - 
+
+BitcoinMonitor
+
+ class handles core functionality
+   - Constructor takes:
+     - Twitter credentials dictionary
+     - Minimum BTC threshold (default 100)
+
+3. **Class Initialization**
+   - Sets up logging system
+   - Creates Twitter poster instance
+   - Initializes whale tracker
+   - Creates transaction queue (max 10 items)
+
+4. **Twitter Setup**
+   - Method 
+
+_setup_twitter
+
+ configures Tweepy client
+   - Takes credentials dictionary with:
+     - bearer_token
+     - consumer_key
+     - consumer_secret
+   - Returns configured Tweepy client instance
+
+5. **Dependencies**
+   - Relies on:
+     - Tweepy for Twitter API
+     - BitcoinWhaleTracker for transaction monitoring
+     - Deque for transaction history
+     - Custom TwitterPoster class (not shown)
+
+6. **Purpose**
+   - Monitors Bitcoin transactions
+   - Posts updates to Twitter
+   - Maintains recent transaction history
+   - Handles logging and error management
