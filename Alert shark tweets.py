@@ -1,130 +1,124 @@
 import time
-import json
 import tweepy
 import logging
-from typing import List, Tuple, Dict
-from collections import deque
-from dataclasses import dataclass
 from alert_shark_1m import test_display
-from report_bitcoin import BitcoinWhaleTracker
+from Block_alert import BitcoinWhaleTracker
+from keys import bearer_token, consumer_key, consumer_secret, access_token, access_token_secret
 
-@dataclass
-class TransactionData:
-    btc_value: float
-    svg_path: str
-    timestamp: str
-
-class TwitterPoster:
-    def __init__(self, creds: Dict[str, str]):
-        # Setup authentication
-        auth = tweepy.OAuthHandler(creds['consumer_key'], creds['consumer_secret'])
-        auth.set_access_token(creds['access_token'], creds['access_token_secret'])
-        
-        # Initialize API v1.1 for media uploads
-        self.api = tweepy.API(auth)
-        
-        # Initialize v2 client
+class TwitterBot:
+    def __init__(self):
+        # Use Twitter API v2 authentication
         self.client = tweepy.Client(
-            bearer_token=creds['bearer_token'],
-            consumer_key=creds['consumer_key'],
-            consumer_secret=creds['consumer_secret'],
-            access_token=creds['access_token'],
-            access_token_secret=creds['access_token_secret'],
+            bearer_token=bearer_token,
+            consumer_key=consumer_key,
+            consumer_secret=consumer_secret,
+            access_token=access_token,
+            access_token_secret=access_token_secret,
             wait_on_rate_limit=True
         )
-
-    def post_tweets(self, text_output: str, svg_images: List[Tuple[float, str]]):
+        
+        # Test authentication
         try:
-            # Post initial text tweet
-            self.client.create_tweet(text=text_output[:280])
-            time.sleep(2)  # Rate limit padding
-            
-            # Sort SVGs by Bitcoin value and get top 2
-            sorted_svgs = sorted(svg_images, key=lambda x: x[0], reverse=True)[:2]
-            
-            # Post SVG images
-            for _, svg_path in sorted_svgs:
-                try:
-                    # Upload media
-                    media = self.api.media_upload(svg_path)
-                    # Create tweet with media
-                    self.client.create_tweet(media_ids=[media.media_id_string])
-                    time.sleep(2)  # Rate limit padding
-                except Exception as e:
-                    logging.error(f"Error posting SVG {svg_path}: {e}")
-                    
+            me = self.client.get_me()
+            print(f"Authentication OK - User ID: {me.data.id}")
         except Exception as e:
-            logging.error(f"Error in post_tweets: {e}")
+            print("Error during authentication:", str(e))
+            raise
+            
+        self.whale_tracker = BitcoinWhaleTracker(min_btc=500)  # Changed to 500 BTC minimum
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger('TwitterBot')
 
-class BitcoinMonitor:
-    def __init__(self, twitter_creds: Dict[str, str], min_btc=100):
-        self.logger = self._setup_logging()
-        self.twitter_poster = TwitterPoster(twitter_creds)
-        self.whale_tracker = BitcoinWhaleTracker(min_btc)
-        self.recent_transactions = deque(maxlen=10)
-        
-    def _setup_logging(self) -> logging.Logger:
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler('bitcoin_monitor.log'),
-                logging.StreamHandler()
-            ]
-        )
-        return logging.getLogger('BitcoinMonitor')
+    def post_tweet(self, message):
+        try:
+            # Use v2 create_tweet instead of update_status
+            tweet = self.client.create_tweet(text=message)
+            self.logger.info(f"Tweet posted successfully with id: {tweet.data['id']}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to tweet: {e}")
+            return False
 
-    def collect_data(self) -> Tuple[str, List[Tuple[float, str]]]:
-        """Collect data from both sources"""
-        price_status = test_display()
-        transactions = []
-        
+    def check_price_update(self):
+        """Run and post price status from alert_shark_1m.py"""
+        try:
+            status = test_display()
+            if status and status != "Error fetching prices":
+                self.logger.info("Price status generated successfully")
+                return status
+            return None
+        except Exception as e:
+            self.logger.error(f"Error in price update: {e}")
+            return None
+
+    def check_whale_alert(self):
+        """Run and post whale alerts from Block_alert.py"""
         try:
             block_hash = self.whale_tracker.get_latest_block()
             if block_hash:
-                for tx in self.whale_tracker.get_block_transactions(block_hash):
-                    processed_tx = self.whale_tracker.process_transaction(tx)
-                    if processed_tx:
-                        transactions.append(
-                            TransactionData(
-                                processed_tx['btc_volume'],
-                                processed_tx.get('svg_path', ''),
-                                processed_tx['timestamp']
-                            )
+                txs = self.whale_tracker.get_block_transactions(block_hash)
+                for tx in txs:
+                    if processed_tx := self.whale_tracker.process_transaction(tx):
+                        btc_price = self.whale_tracker.get_btc_price()
+                        usd_value = processed_tx['btc_volume'] * btc_price
+                        fee_usd = processed_tx.get('fee', 0) * btc_price
+                        
+                        # Use the wallet names directly from Block_alert.py
+                        sender = processed_tx['sender']    # Will contain exchange/wallet name if identified
+                        receiver = processed_tx['receiver']  # Will contain exchange/wallet name if identified
+                        
+                        message = (
+                            f"🚨🚨🚨 {processed_tx['tx_type']}:\n"
+                            f"{processed_tx['btc_volume']:.2f} #BTC (${usd_value:,.2f}) "
+                            f"was sent from {sender} to {receiver}\n"
+                            f"and the transaction #fee was {processed_tx.get('fee', 0):.8f} BTC (${fee_usd:.2f})"
                         )
+                        return self.post_tweet(message)
         except Exception as e:
-            self.logger.error(f"Error collecting whale transactions: {e}")
+            self.logger.error(f"Error in whale alert: {e}")
+        return False
 
-        svg_images = [(tx.btc_value, tx.svg_path) for tx in transactions]
-        return price_status, svg_images
-
-    def run(self, interval: int = 60):
-        """Main monitoring loop"""
-        self.logger.info("Starting Bitcoin Monitor...")
-        
+    def run(self):
+        self.logger.info("Starting Twitter Bot...")
         while True:
             try:
-                price_status, svg_images = self.collect_data()
+                # Initial wait to ensure API readiness
+                self.logger.info("Initial startup delay (30 seconds)...")
+                time.sleep(30)
                 
-                if price_status and svg_images:
-                    self.twitter_poster.post_tweets(price_status, svg_images)
+                # Get price update
+                self.logger.info("Fetching price update...")
+                status = self.check_price_update()
                 
-                time.sleep(interval)
+                if status:
+                    # Wait before posting
+                    self.logger.info("Waiting 2 minutes before posting price update...")
+                    time.sleep(120)
+                    # Post the price update
+                    if self.post_tweet(status):
+                        self.logger.info("Price update posted successfully")
+                    else:
+                        self.logger.error("Failed to post price update")
                 
+                # Continue with whale alerts
+                self.logger.info("Waiting 2 minutes before checking whale alerts...")
+                time.sleep(120)
+                
+                # Check whale alerts
+                self.logger.info("Checking whale alerts...")
+                if self.check_whale_alert():
+                    # If whale alert was posted, wait 2 minutes
+                    self.logger.info("Whale alert posted, waiting 2 minutes...")
+                    time.sleep(120)
+                else:
+                    # If no whale alert, wait 3 minutes
+                    self.logger.info("No whale activity, waiting 3 minutes...")
+                    time.sleep(180)
+
             except Exception as e:
                 self.logger.error(f"Error in main loop: {e}")
                 time.sleep(30)
 
 if __name__ == "__main__":
-    from keys import bearer_token, consumer_key, consumer_secret, access_token, access_token_secret
-    
-    creds = {
-        'bearer_token': bearer_token,
-        'consumer_key': consumer_key,
-        'consumer_secret': consumer_secret,
-        'access_token': access_token,
-        'access_token_secret': access_token_secret
-    }
-    
-    monitor = BitcoinMonitor(creds)
-    monitor.run()
+    bot = TwitterBot()
+    bot.run()

@@ -1,7 +1,7 @@
-click==7.1.2
-Flask==1.1.2
-gunicorn==20.0.4
-itsdangerous==1.1.0
-Jinja2==2.11.3
-MarkupSafe==1.1.1
-Werkzeug==1.0.1
+Gunicorn==19.7.1
+chardet==3.0.4
+Idna==2.7
+certifi==2019.9.11
+tweepy==4.14.0
+flask==2.2.5
+apscheduler==3.6.3
